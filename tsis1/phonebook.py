@@ -6,7 +6,7 @@ conn = psycopg2.connect(
     host = "localhost",
     database = "phonebooktsis",
     user = "postgres",
-    password = "password"
+    password = "pp2psql"
     )
 
 cur = conn.cursor()
@@ -55,18 +55,19 @@ def insert_from_csv():
                 res = cur.fetchone()
                 if res:
                     group_id = res[0]
-
             cur.execute(
-                    "INSERT INTO contacts (name, phone, email, birthday, group_id) VALUES (%s, %s, %s, %s, %s)",
-                    (name, phone, email, birthday, group_id)
-            )
+    "INSERT INTO contacts (name, email, birthday, group_id)",
+    (name, email, birthday, group_id)
+)
             phone_type = row.get("phone_type", "").strip() or "mobile"
+
             cur.execute("SELECT id FROM contacts WHERE name = %s", (name,))
             contact_id = cur.fetchone()[0]
+
             cur.execute(
-                "INSERT INTO phones (contact_id, phone, type) VALUES (%s, %s, %s)",
-                (contact_id, phone, phone_type)
-            )
+    "INSERT INTO phones (contact_id, phone, type) VALUES (%s, %s, %s)",
+    (contact_id, phone, phone_type)
+)
         conn.commit()
         print("Added successfully from CSV file!")
 
@@ -138,46 +139,21 @@ def delete_contacts():
     conn.commit()
 
 def search_contacts():
-    print("1.View all contacts.\n2.Search with name.\n3.Search with phone prefix.")
+    query = input("Enter search: ")
 
-    choice = input("Enter your choice: ")
-    rows = []  # ← бастапқы мән бер
+    cur.execute("""
+        SELECT c.id, c.name, c.phone, c.email, g.name
+        FROM contacts c
+        LEFT JOIN groups g ON c.group_id = g.id
+        LEFT JOIN phones p ON p.contact_id = c.id
+        WHERE c.name ILIKE %s
+           OR c.email ILIKE %s
+           OR p.phone ILIKE %s
+    """, (f"%{query}%", f"%{query}%", f"%{query}%"))
 
-    if choice == "1":
-        cur.execute("""
-            SELECT c.id, c.name, c.phone, c.email, c.birthday, g.name
-            FROM contacts c
-            LEFT JOIN groups g ON c.group_id = g.id
-        """)
-        rows = cur.fetchall()
-    elif choice == "2":
-        name = input("Please enter the name for search: ")
-        cur.execute("""
-            SELECT c.id, c.name, c.phone, c.email, c.birthday, g.name
-            FROM contacts c
-            LEFT JOIN groups g ON c.group_id = g.id
-            WHERE c.name ILIKE %s
-        """, (f"%{name}%",))
-        rows = cur.fetchall()
-    elif choice == "3":
-        prefix = input("Please enter the prefix: ")
-        cur.execute("""
-            SELECT c.id, c.name, c.phone, c.email, c.birthday, g.name
-            FROM contacts c
-            LEFT JOIN groups g ON c.group_id = g.id
-            WHERE c.phone LIKE %s
-        """, (prefix + "%",))
-        rows = cur.fetchall()
-    else:
-        print("Wrong choice!")
-        return
-
-    if rows:
-        for row in rows:
-            print(f"ID:{row[0]}, Name: {row[1]}, Phone: {row[2]}")
-    else:
-        print("Nothing found.")
-
+    rows = cur.fetchall()
+    print_rows(rows)
+  
 def print_rows(rows):
     if not rows:
         print("empty")
@@ -216,11 +192,6 @@ def filter_by_group():
         for row in rows:
             print(f"{row[0]:<5} {str(row[1]):<20} {str(row[2]):<15} {str(row[3] or ''):<25} {str(row[4] or ''):<12} {str(row[5] or ''):<10}")
 
-def search_by_email():
-    emailp = input("Enter email name: ")
-    cur.execute("SELECT c.id, c.name, c.phone, c.email, c.birthday, g.name FROM contacts c LEFT JOIN groups g ON c.group_id = g.id WHERE c.email LIKE %s ORDER BY c.name", (f"%{emailp}%",))
-    rows = cur.fetchall
-    print_rows(rows)
 
 def sort_out():
     print("Sort by: \n1.name.\n2.birtday.\n3.id")
@@ -357,7 +328,7 @@ try:
         elif choice == "6":
             filter_by_group()
         elif choice == "7":
-            search_by_email()
+            search_contacts()
         elif choice == "8":
             sort_out()
         elif choice == "9":
