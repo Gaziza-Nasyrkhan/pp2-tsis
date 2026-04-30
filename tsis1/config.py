@@ -1,20 +1,24 @@
-from configparser import ConfigParser
+import psycopg2
+import csv
+import json
 
-def load_config(filename='database.ini', section='postgresql'):
-    parser = ConfigParser()
-    parser.read(filename)
+# PostgreSQL configuration (directly in code)
+config = {
+    'dbname': 'snake',
+    'user': 'postgres',
+    'password': 'pp2psql',
+    'host': '127.0.0.1',
+    'port': '5432'
+}
 
-    # get section, default to postgresql
-    config = {}
-    if parser.has_section(section):
-        params = parser.items(section)
-        for param in params:
-            config[param[0]] = param[1]
-    else:
-        raise Exception('Section {0} not found in the {1} file'.format(section, filename))
+# Connect to database
+try:
+    conn = psycopg2.connect(**config)
+    print("✅ Connected to database successfully!")
+except Exception as e:
+    print(f"❌ Connection error: {e}")
+    exit()
 
-    return config
+cur = conn.cursor()
 
-if __name__ == '__main__':
-    config = load_config()
-    print(config)
+# Rest of your code continues here...

@@ -1,14 +1,14 @@
 import psycopg2
 
-DB_CONFIG = {
-    "dbname": "snake",
-    "user": "postgres",
-    "password": "password",
-    "host": "localhost",
-}
-
 def get_connection():
-    return psycopg2.connect(**DB_CONFIG)
+    conn = psycopg2.connect(
+    dbname="snake",
+    user="postgres",
+    password="pp2psql",
+    host="127.0.0.1",
+    port="5432"
+)
+    return conn
 
 def init_db():
     conn = get_connection()
@@ -25,8 +25,8 @@ def init_db():
         CREATE TABLE IF NOT EXISTS game_sessions (
             id SERIAL PRIMARY KEY,
             player_id INTEGER REFERENCES players(id),
-            score INTEGER NOT NULL,
-            level_reached INTEGER NOT NULL,
+            score INTEGER DEFAULT 0,
+            level_reached INTEGER DEFAULT 1,
             played_at TIMESTAMP DEFAULT NOW()
         );
     """)
@@ -46,7 +46,7 @@ def get_or_create_player(username):
         player_id = row[0]
     else:
         cur.execute(
-            "INSERT INTO players (username) VALUES (%s) RETURNING id",
+            "INSERT INTO players(username) VALUES(%s) RETURNING id",
             (username,)
         )
         player_id = cur.fetchone()[0]
@@ -60,10 +60,10 @@ def save_result(player_id, score, level):
     conn = get_connection()
     cur = conn.cursor()
 
-    cur.execute("""
-        INSERT INTO game_sessions (player_id, score, level_reached)
-        VALUES (%s, %s, %s)
-    """, (player_id, score, level))
+    cur.execute(
+        "INSERT INTO game_sessions(player_id, score, level_reached) VALUES(%s,%s,%s)",
+        (player_id, score, level)
+    )
 
     conn.commit()
     cur.close()
@@ -74,15 +74,16 @@ def get_leaderboard(limit=10):
     cur = conn.cursor()
 
     cur.execute("""
-        SELECT p.username, MAX(gs.score), MAX(gs.level_reached)
-        FROM game_sessions gs
-        JOIN players p ON gs.player_id = p.id
+        SELECT p.username, MAX(g.score), MAX(g.level_reached)
+        FROM game_sessions g
+        JOIN players p ON g.player_id = p.id
         GROUP BY p.username
-        ORDER BY MAX(gs.score) DESC
+        ORDER BY MAX(g.score) DESC
         LIMIT %s
     """, (limit,))
 
     rows = cur.fetchall()
+
     cur.close()
     conn.close()
     return rows
@@ -91,14 +92,13 @@ def get_personal_best(player_id):
     conn = get_connection()
     cur = conn.cursor()
 
-    cur.execute("""
-        SELECT MAX(score)
-        FROM game_sessions
-        WHERE player_id=%s
-    """, (player_id,))
+    cur.execute(
+        "SELECT COALESCE(MAX(score),0) FROM game_sessions WHERE player_id=%s",
+        (player_id,)
+    )
 
-    row = cur.fetchone()
+    best = cur.fetchone()[0]
+
     cur.close()
     conn.close()
-
-    return row[0] if row and row[0] else 0
+    return best
